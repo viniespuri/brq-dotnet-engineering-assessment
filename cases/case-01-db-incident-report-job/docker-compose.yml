@@ -1,0 +1,41 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: case01-sqlserver
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "BrqTest!Passw0rd"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    healthcheck:
+      test: >
+        /bin/bash -lc
+        '/opt/mssql-tools/bin/sqlcmd -C -S localhost -U sa -P "BrqTest!Passw0rd" -Q "SELECT 1" || exit 1'
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+ 
+  app:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    container_name: case01-app
+    working_dir: /workspace
+    volumes:
+      - ./src:/workspace/src:ro
+    environment:
+      DB_CONNECTION: "Server=sqlserver,1433;Database=case01db;User Id=sa;Password=BrqTest!Passw0rd;TrustServerCertificate=True;Encrypt=False;"
+    command:
+      - /bin/bash
+      - -lc
+      - |
+        set -e
+        dotnet new console -n runtime -o /tmp/runtime --force
+        cp /workspace/src/Program.cs /tmp/runtime/Program.cs
+        dotnet add /tmp/runtime/runtime.csproj package Microsoft.Data.SqlClient
+        dotnet run --project /tmp/runtime
+
+volumes:
+  sqlserver_data:
